@@ -1,4 +1,4 @@
-# Job Autopilot — Apply While You Sleep
+linked# Job Autopilot — Apply While You Sleep
 
 ![Job Autopilot](public/banner.png)
 > An AI autopilot that reads job posts, writes personalised cover letters, and emails recruiters — fully automatically.
@@ -59,7 +59,7 @@ This project implements the same six-layer architecture used in enterprise AI au
 | **A — Action execution** | Compose + attach + send via Gmail API | SAP OData, Graph API, supplier email, Excel writes |
 | **T — Trust + governance** | Daily digest — sent, skipped, reason for each | Immutable audit log, GDPR Article 22, override tracking |
 
-> Same six-layer architecture. Different stakes. The gap between a cover letter sent to the wrong recruiter and a purchase order sent to the wrong vendor — that gap is the enterprise product problem.
+> Most AI tools are chatbots — they answer questions and stop there. This project is different. It captures a signal, understands intent, retrieves context, decides what to do, takes action, and logs what happened. That is the full loop of an autonomous AI agent, running end to end without a human in the middle.
 
 ---
 
