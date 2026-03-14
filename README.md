@@ -1,156 +1,164 @@
-# Job Autopilot 🚀
+# Job Autopilot — Apply While You Sleep
 
-Automatically applies to PM jobs from your WhatsApp job group while you sleep.
+![Job Autopilot](public/banner.png)
+> An AI autopilot that reads job posts, writes personalised cover letters, and emails recruiters — fully automatically.
 
-**Flow:** WhatsApp job post → you forward to Gmail → cron picks it up → Claude parses JD + writes cover letter → sends to recruiter with your resume attached → you wake up to a digest.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-job--autopilot.vercel.app-black?style=flat-square)](https://job-autopilot.vercel.app)
+[![GitHub](https://img.shields.io/badge/GitHub-deepaklv%2Fjob--autopilot-black?style=flat-square&logo=github)](https://github.com/deepaklv/job-autopilot)
+[![Built with Claude](https://img.shields.io/badge/Built%20with-Claude%20AI-black?style=flat-square)](https://anthropic.com)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org)
+[![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=flat-square&logo=vercel)](https://vercel.com)
+
+---
+
+## The problem
+
+Every job application requires the same painful sequence — copy the JD, open a doc, write a cover letter, find the recruiter email, attach your resume, send. Multiply that by 40 applications and you have lost a full working week to admin.
+
+## The solution
+
+Forward a job post to Gmail. Everything else is automatic.
 
 ---
 
 ## How it works
 
-1. Someone posts a job in your WhatsApp group
-2. You forward the message to your Gmail (5 seconds)
-3. You label it `jobs-apply` in Gmail (or set up a filter to do this automatically)
-4. Every 30 minutes, the cron job wakes up, reads new emails in that label
-5. Claude extracts the recruiter's email from the JD
-6. **Safety check**: if no clear recruiter email is found, the job is skipped (never sends blind)
-7. Claude writes a 3-4 sentence tailored cover letter using your resume
-8. Gmail API sends the email with your resume PDF attached
-9. You get a morning digest of everything that went out
+```
+📱 Forward JD          🤖 AI parses            ✍️ AI writes
+to Gmail        →      role, company,    →      tailored cover
+                       recruiter email          letter from resume
+
+📤 Auto-sends          😴 You sleep
+email + resume  →      wake to morning
+to recruiter           digest
+```
 
 ---
 
-## Setup (one afternoon, I promise)
+## By the numbers
 
-### Step 1 — Clone and install
+| Metric | Value |
+|---|---|
+| Your effort per application | 5 seconds |
+| Identical cover letters sent | 0 |
+| Runs automatically | 24/7 |
+| Jobs handled per email | 10+ |
+
+---
+
+## Architecture — SICPAT pattern
+
+This project implements the same six-layer architecture used in enterprise AI autopilot systems — at consumer scale.
+
+| Layer | This project | Enterprise scale |
+|---|---|---|
+| **S — Signal capture** | Gmail keyword filter, scanned daily | Email + ERP events + EDI + webhooks |
+| **I — Intent extraction** | Claude extracts role, company, recruiter email | PO numbers, vendor names, amounts, deadlines |
+| **C — Context retrieval** | Static PDF resume as grounding document | Live RAG across SAP, CRM, contracts, vendor master |
+| **P — Plan of action** | Send if recruiter email found and role is relevant | Multi-step workflow, Saga pattern, approval gates |
+| **A — Action execution** | Compose + attach + send via Gmail API | SAP OData, Graph API, supplier email, Excel writes |
+| **T — Trust + governance** | Daily digest — sent, skipped, reason for each | Immutable audit log, GDPR Article 22, override tracking |
+
+> Same six-layer architecture. Different stakes. The gap between a cover letter sent to the wrong recruiter and a purchase order sent to the wrong vendor — that gap is the enterprise product problem.
+
+---
+
+## Safety features
+
+- **Sends only when recruiter email is explicit** — never guesses, never sends blind
+- **Filters irrelevant roles** — skips jobs outside your target domain automatically
+- **Full transparency** — morning digest shows exactly what sent, skipped, and why
+- **Handles bulk forwards** — forward 10 jobs at once, it splits and processes each individually
+
+---
+
+## Morning digest — sample output
+
+```
+── Autopilot digest · 06:00 IST ────────────────
+
+Sent      9   applications dispatched
+Skipped   6   no recruiter email found
+Skipped   3   outside target domain
+
+✓ Sr PM @ RazorpayX       → talent@razorpay.com
+✓ PM @ Zepto              → careers@zepto.com
+✓ Product Lead @ PhonePe  → hiring@phonepe.com
+✓ PM @ CRED               → pm-roles@cred.club
+  + 5 more sent
+
+────────────────────────────────────────────────
+Good luck today.
+```
+
+---
+
+## Tech stack
+
+- **AI** — Claude API (Anthropic) for JD parsing and cover letter generation
+- **Email** — Gmail API with OAuth 2.0
+- **Framework** — Next.js 15 (App Router)
+- **Deployment** — Vercel with auto-cron
+- **Language** — TypeScript
+
+---
+
+## Setup
+
+### Prerequisites
+- Node.js 18+
+- Anthropic API key
+- Gmail OAuth credentials
+
+### Installation
 
 ```bash
-git clone <your-repo>
+git clone https://github.com/deepaklv/job-autopilot.git
 cd job-autopilot
 npm install
 ```
 
-### Step 2 — Drop your resume in
+### Environment variables
 
-Copy your resume PDF to:
-```
-public/resume.pdf
-```
-
-Make sure your name is on the first line — the app extracts it automatically for the email sign-off.
-
-### Step 3 — Set up Google Cloud (the longest step, ~20 min)
-
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Create a new project (e.g. "Job Autopilot")
-3. Go to **APIs & Services → Enable APIs** → enable **Gmail API**
-4. Go to **APIs & Services → OAuth consent screen**
-   - Choose **External**
-   - Fill in app name ("Job Autopilot"), your email
-   - Add scopes: `gmail.readonly`, `gmail.send`, `gmail.modify`, `gmail.labels`
-   - Add yourself as a **test user**
-5. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**
-   - Application type: **Web application**
-   - Authorized redirect URIs: `http://localhost:3000/api/gmail-callback` (for local) + `https://your-app.vercel.app/api/gmail-callback` (for production)
-   - Copy the **Client ID** and **Client Secret**
-
-### Step 4 — Get your Gmail refresh token
-
-1. Copy `.env.local.example` to `.env.local` and fill in `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `YOUR_EMAIL`, and `NEXT_PUBLIC_APP_URL=http://localhost:3000`
-2. Run locally: `npm run dev`
-3. Visit: [http://localhost:3000/api/gmail-callback](http://localhost:3000/api/gmail-callback)
-4. Approve Gmail access
-5. You'll see your **refresh token** on the page — copy it into `.env.local` as `GMAIL_REFRESH_TOKEN`
-
-### Step 5 — Create the Gmail label
-
-In Gmail:
-- Click **+ Create new label** in the left sidebar
-- Name it exactly: `jobs-apply`
-
-**Optional automation**: Create a Gmail filter so any email you forward from WhatsApp (your own address) with "job" in the subject auto-gets this label.
-
-### Step 6 — Fill in the rest of .env.local
-
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-GMAIL_CLIENT_ID=...
-GMAIL_CLIENT_SECRET=...
-GMAIL_REFRESH_TOKEN=...   ← from Step 4
-YOUR_EMAIL=you@gmail.com
-NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
-CRON_SECRET=make-up-a-long-random-string
-```
-
-### Step 7 — Deploy to Vercel
+Copy `.env.local.example` to `.env.local` and fill in your credentials:
 
 ```bash
-npm install -g vercel
-vercel
+cp .env.local.example .env.local
 ```
 
-Add all your environment variables in **Vercel → Settings → Environment Variables**.
-
-The `vercel.json` cron job is already configured — Vercel will call `/api/run-applications` every 30 minutes automatically.
-
-> **Note**: Cron jobs require Vercel's **Hobby plan** (free) or above.
-
-### Step 8 — Repeat the Gmail OAuth for production
-
-Once deployed, visit `https://your-app.vercel.app/api/gmail-callback` and go through the flow again to get a production refresh token (the localhost one won't work in production). Update `GMAIL_REFRESH_TOKEN` in Vercel env vars.
-
----
-
-## Daily usage
-
-1. See a job in WhatsApp → forward to your Gmail
-2. Add the `jobs-apply` label (or let your filter do it)
-3. Go to sleep
-4. Wake up to a digest email like:
-
+```env
+ANTHROPIC_API_KEY=your-anthropic-api-key
+GMAIL_CLIENT_ID=your-gmail-client-id
+GMAIL_CLIENT_SECRET=your-gmail-client-secret
+GMAIL_REFRESH_TOKEN=your-gmail-refresh-token
 ```
-Job Autopilot — Run at 2024-01-15T02:30:00Z
-─────────────────────────────────
-Emails processed : 3
-Applications sent: 2
-Skipped (no email found): 1
-Errors           : 0
 
-✅ SENT:
-  • Senior PM @ Razorpay → careers@razorpay.com
-  • Product Manager @ Zepto → hrteam@zepto.app
+### Run locally
 
-⏭ SKIPPED (no recruiter email in JD):
-  • Growth PM @ Unknown — no email in JD
-
-Good luck! 🚀
+```bash
+npm run dev
 ```
 
 ---
 
-## Customising the cover letter
+## Your effort
 
-Edit the prompt in `lib/claude.ts` → `generateCoverLetter()`. You can:
-- Add more context about yourself that isn't in the resume
-- Change the tone (more formal, more casual)
-- Add a sentence about why you want to work at specific company types
-
----
-
-## Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| "Label jobs-apply not found" | Create the label in Gmail — exact spelling matters |
-| "Resume not found" | Make sure `public/resume.pdf` exists |
-| OAuth errors | Refresh token may have expired — redo Step 4 |
-| Cron not running | Check Vercel dashboard → Functions → Cron |
-| Emails going to spam | Send a test email first to warm up the Gmail account |
+1. Forward a job post to Gmail
+2. Gmail auto-labels it via keyword filter
+3. Done. Everything else is automatic.
 
 ---
 
-## Security notes
+## Built by
 
-- Your resume PDF is in `/public` — it will be accessible at `your-app.vercel.app/resume.pdf`. If you want to keep it private, move the loading logic to read from an env var (base64 encoded) or Vercel Blob instead.
-- The `/api/run-applications` endpoint is protected by `CRON_SECRET` — don't share it.
-- Gmail refresh tokens don't expire unless you revoke access or exceed Google's token limits.
+**Deepak Leelavinothan** — Senior Product Manager, AI Products
+
+- 17 years building enterprise SaaS and AI products
+- Built agentic AI systems in production at Kapture CX
+- PhD candidate — Adaptive AI in the Future of Work
+
+[LinkedIn](https://www.linkedin.com/in/dleelavi/) · [Email](mailto:dlv4224@gmail.com)
+
+---
+
+*Built in March 2026 while job hunting. Because if you are going to build an AI autopilot on your resume, you might as well use one.*
